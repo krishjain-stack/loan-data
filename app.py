@@ -71,43 +71,49 @@ if st.button("Predict Loan Default"):
         st.success("✅ Low Risk: Loan Likely to be Approved.")
 
 # -----------------------------
-# 📊 Additional Visualizations
+# 📊 Additional Visual Insights
 # -----------------------------
-
 st.markdown("---")
 st.header("📊 Visual Insights Based on Your Inputs")
 
-# 1. Bar Chart of Applicant vs Coapplicant Income
-st.subheader("1. Applicant vs Coapplicant Income")
-fig1, ax1 = plt.subplots()
-sns.barplot(x=["Applicant", "Coapplicant"], y=[applicant_income, coapplicant_income], ax=ax1)
-ax1.set_ylabel("Income")
-st.pyplot(fig1)
+col1, col2, col3, col4 = st.columns(4)
 
-# 2. Pie Chart: Property Area Distribution (Fixed Example)
-st.subheader("2. Sample Loan Distribution by Property Area")
-area_counts = pd.Series({"Urban": 45, "Semiurban": 35, "Rural": 20})
-fig2, ax2 = plt.subplots()
-ax2.pie(area_counts, labels=area_counts.index, autopct='%1.1f%%', startangle=90)
-ax2.axis('equal')
-st.pyplot(fig2)
+# 1. Bar Chart: Applicant vs Coapplicant Income
+with col1:
+    st.markdown("**1. Income Comparison**")
+    fig1, ax1 = plt.subplots()
+    sns.barplot(x=["Applicant", "Coapplicant"], y=[applicant_income, coapplicant_income], ax=ax1)
+    ax1.set_ylabel("Income")
+    st.pyplot(fig1)
 
-# 3. Histogram: Loan Amount Range
-st.subheader("3. Loan Amount Distribution (Sample)")
-sample_loans = np.random.normal(loc=loan_amount if loan_amount > 0 else 150, scale=50, size=100)
-fig3, ax3 = plt.subplots()
-sns.histplot(sample_loans, bins=20, kde=True, ax=ax3)
-ax3.set_xlabel("Loan Amount (in thousands)")
-st.pyplot(fig3)
+# 2. Pie Chart: Property Area (Example Data)
+with col2:
+    st.markdown("**2. Property Area**")
+    area_counts = pd.Series({"Urban": 45, "Semiurban": 35, "Rural": 20})
+    fig2, ax2 = plt.subplots()
+    ax2.pie(area_counts, labels=area_counts.index, autopct='%1.1f%%', startangle=90)
+    ax2.axis('equal')
+    st.pyplot(fig2)
 
-# 4. Scatter Plot: Income vs Loan Amount (Single Point + Sample)
-st.subheader("4. Income vs Loan Amount")
-sample_income = np.random.normal(loc=applicant_income, scale=3000, size=50)
-sample_loan = np.random.normal(loc=loan_amount if loan_amount > 0 else 150, scale=50, size=50)
-fig4, ax4 = plt.subplots()
-ax4.scatter(sample_income, sample_loan, alpha=0.4, label="Sample")
-ax4.scatter(applicant_income, loan_amount, color='red', s=100, label="Your Entry")
-ax4.set_xlabel("Applicant Income")
-ax4.set_ylabel("Loan Amount")
-ax4.legend()
-st.pyplot(fig4)
+# 3. Histogram: Loan Amount Distribution
+with col3:
+    st.markdown("**3. Loan Amount Dist.**")
+    sample_loans = np.random.normal(loc=loan_amount if loan_amount > 0 else 150, scale=50, size=100)
+    fig3, ax3 = plt.subplots()
+    sns.histplot(sample_loans, bins=20, kde=True, ax=ax3)
+    ax3.set_xlabel("Loan Amount")
+    st.pyplot(fig3)
+
+# 4. Scatter Plot: Income vs Loan
+with col4:
+    st.markdown("**4. Income vs Loan**")
+    sample_income = np.random.normal(loc=applicant_income, scale=3000, size=50)
+    sample_loan = np.random.normal(loc=loan_amount if loan_amount > 0 else 150, scale=50, size=50)
+    fig4, ax4 = plt.subplots()
+    ax4.scatter(sample_income, sample_loan, alpha=0.4, label="Sample")
+    ax4.scatter(applicant_income, loan_amount, color='red', s=100, label="You")
+    ax4.set_xlabel("Applicant Income")
+    ax4.set_ylabel("Loan Amount")
+    ax4.legend()
+    st.pyplot(fig4)
+
