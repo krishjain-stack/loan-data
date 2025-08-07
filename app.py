@@ -22,8 +22,11 @@ education = st.selectbox("Education", ["Graduate", "Not Graduate"])
 self_employed = st.selectbox("Self Employed", ["Yes", "No"])
 applicant_income = st.number_input("Applicant Income", min_value=0)
 coapplicant_income = st.number_input("Coapplicant Income", min_value=0)
-loan_amount = st.number_input("Loan Amount (in thousands)", min_value=0)
-loan_amount_term = st.number_input("Loan Amount Term (in months)", min_value=0)
+
+# Updated: Sliders for loan amount and term
+loan_amount = st.slider("Loan Amount (in thousands)", min_value=0, max_value=500, value=150, step=1)
+loan_amount_term = st.slider("Loan Amount Term (in months)", min_value=12, max_value=480, value=360, step=12)
+
 credit_history = st.selectbox("Credit History", ["Good (1)", "Bad (0)"])
 property_area = st.selectbox("Property Area", ["Urban", "Semiurban", "Rural"])
 
@@ -116,4 +119,6 @@ with col4:
     ax4.set_ylabel("Loan Amount")
     ax4.legend()
     st.pyplot(fig4)
+
+
 
