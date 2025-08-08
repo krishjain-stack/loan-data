@@ -6,6 +6,5 @@ joblib
 matplotlib
 seaborn
 plotly
-reportlab.lib.pagesizes
-reportlab.platypus
-reportlab.lib.styles
+reportlab
+scikit-learn
