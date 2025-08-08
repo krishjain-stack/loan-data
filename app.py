@@ -5,16 +5,48 @@ import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.graph_objects as go
+import base64
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
-# Load model and scaler
+# --------------------
+# Background Image
+# --------------------
+def add_bg_from_local(image_file):
+    with open(image_file, "rb") as img_file:
+        encoded = base64.b64encode(img_file.read()).decode()
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/png;base64,{encoded}");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+add_bg_from_local("bank.png")  # Your background image
+
+# --------------------
+# Load Model & Scaler
+# --------------------
 model = joblib.load("model.pkl")
 scaler = joblib.load("scaler.pkl")
 
-# App title
+# --------------------
+# App Title
+# --------------------
 st.title("🏦 Loan Default Prediction App")
 st.write("Enter applicant details to predict loan default risk.")
 
-# Input fields
+# --------------------
+# Input Fields
+# --------------------
 gender = st.selectbox("Gender", ["Male", "Female"])
 married = st.selectbox("Married", ["Yes", "No"])
 dependents = st.selectbox("Dependents", ["0", "1", "2", "3+"])
@@ -23,14 +55,16 @@ self_employed = st.selectbox("Self Employed", ["Yes", "No"])
 applicant_income = st.number_input("Applicant Income", min_value=0)
 coapplicant_income = st.number_input("Coapplicant Income", min_value=0)
 
-# Updated: Sliders for loan amount and term
+# Sliders for loan amount and term
 loan_amount = st.slider("Loan Amount (in thousands)", min_value=0, max_value=500, value=150, step=1)
 loan_amount_term = st.slider("Loan Amount Term (in months)", min_value=12, max_value=480, value=360, step=12)
 
 credit_history = st.selectbox("Credit History", ["Good (1)", "Bad (0)"])
 property_area = st.selectbox("Property Area", ["Urban", "Semiurban", "Rural"])
 
-# Convert inputs to numeric codes
+# --------------------
+# Convert Inputs to Numeric Codes
+# --------------------
 gender_code = 1 if gender == "Male" else 0
 married_code = 1 if married == "Yes" else 0
 dependents_code = 3 if dependents == "3+" else int(dependents)
@@ -39,20 +73,23 @@ self_employed_code = 1 if self_employed == "Yes" else 0
 credit_history_code = 1 if credit_history == "Good (1)" else 0
 property_area_code = {"Urban": 2, "Semiurban": 1, "Rural": 0}[property_area]
 
-# Create input array
+# --------------------
+# Create Input Array & Scale
+# --------------------
 input_data = np.array([[gender_code, married_code, dependents_code, education_code,
                         self_employed_code, applicant_income, coapplicant_income,
                         loan_amount, loan_amount_term, credit_history_code, property_area_code]])
 
-# Scale numeric features
 input_scaled = scaler.transform(input_data)
 
+# --------------------
 # Predict
+# --------------------
 if st.button("Predict Loan Default"):
     prediction = model.predict(input_scaled)
     prob = model.predict_proba(input_scaled)[0][1]  # Probability of default
 
-    # Gauge Chart for Risk
+    # Gauge Chart
     st.subheader("📉 Risk Probability Gauge")
     fig_gauge = go.Figure(go.Indicator(
         mode="gauge+number",
@@ -69,19 +106,66 @@ if st.button("Predict Loan Default"):
     st.plotly_chart(fig_gauge)
 
     if prediction[0] == 1:
-        st.error("❌ High Risk: Loan Likely to Default.")
+        result_text = "❌ High Risk: Loan Likely to Default."
+        st.error(result_text)
     else:
-        st.success("✅ Low Risk: Loan Likely to be Approved.")
+        result_text = "✅ Low Risk: Loan Likely to be Approved."
+        st.success(result_text)
 
-# -----------------------------
-# 📊 Additional Visual Insights
-# -----------------------------
+    # --------------------
+    # PDF Download Button
+    # --------------------
+    def create_pdf():
+        pdf_file = "loan_prediction_report.pdf"
+        doc = SimpleDocTemplate(pdf_file, pagesize=letter)
+        styles = getSampleStyleSheet()
+        elements = []
+
+        elements.append(Paragraph("🏦 Loan Prediction Report", styles['Title']))
+        elements.append(Spacer(1, 12))
+
+        # Add inputs
+        inputs_summary = f"""
+        Gender: {gender}<br/>
+        Married: {married}<br/>
+        Dependents: {dependents}<br/>
+        Education: {education}<br/>
+        Self Employed: {self_employed}<br/>
+        Applicant Income: {applicant_income}<br/>
+        Coapplicant Income: {coapplicant_income}<br/>
+        Loan Amount: {loan_amount}<br/>
+        Loan Term: {loan_amount_term}<br/>
+        Credit History: {credit_history}<br/>
+        Property Area: {property_area}<br/>
+        """
+        elements.append(Paragraph(inputs_summary, styles['Normal']))
+        elements.append(Spacer(1, 12))
+
+        # Add prediction
+        elements.append(Paragraph(f"Prediction: {result_text}", styles['Heading2']))
+        elements.append(Paragraph(f"Probability of Default: {round(prob * 100, 2)}%", styles['Normal']))
+
+        doc.build(elements)
+        return pdf_file
+
+    pdf_path = create_pdf()
+
+    with open(pdf_path, "rb") as file:
+        st.download_button(
+            label="📥 Download Prediction Report (PDF)",
+            data=file,
+            file_name="loan_prediction_report.pdf",
+            mime="application/pdf"
+        )
+
+# --------------------
+# Visual Insights
+# --------------------
 st.markdown("---")
 st.header("📊 Visual Insights Based on Your Inputs")
 
 col1, col2, col3, col4 = st.columns(4)
 
-# 1. Bar Chart: Applicant vs Coapplicant Income
 with col1:
     st.markdown("**1. Income Comparison**")
     fig1, ax1 = plt.subplots()
@@ -89,7 +173,6 @@ with col1:
     ax1.set_ylabel("Income")
     st.pyplot(fig1)
 
-# 2. Pie Chart: Property Area (Example Data)
 with col2:
     st.markdown("**2. Property Area**")
     area_counts = pd.Series({"Urban": 45, "Semiurban": 35, "Rural": 20})
@@ -98,7 +181,6 @@ with col2:
     ax2.axis('equal')
     st.pyplot(fig2)
 
-# 3. Histogram: Loan Amount Distribution
 with col3:
     st.markdown("**3. Loan Amount Dist.**")
     sample_loans = np.random.normal(loc=loan_amount if loan_amount > 0 else 150, scale=50, size=100)
@@ -107,7 +189,6 @@ with col3:
     ax3.set_xlabel("Loan Amount")
     st.pyplot(fig3)
 
-# 4. Scatter Plot: Income vs Loan
 with col4:
     st.markdown("**4. Income vs Loan**")
     sample_income = np.random.normal(loc=applicant_income, scale=3000, size=50)
@@ -119,6 +200,7 @@ with col4:
     ax4.set_ylabel("Loan Amount")
     ax4.legend()
     st.pyplot(fig4)
+
 
 
 
