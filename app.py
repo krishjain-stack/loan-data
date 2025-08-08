@@ -120,6 +120,36 @@ st.download_button(
     mime="application/pdf"
 )
 
+# ---------------------------
+# Debug-friendly prediction
+# ---------------------------
+st.subheader("🔍 Debug Information")
+
+# Show raw numeric encoding
+raw_data = [gender_code, married_code, dependents_code, education_code,
+            self_employed_code, applicant_income, coapplicant_income,
+            loan_amount, loan_amount_term, credit_history_code, property_area_code]
+st.write("Raw Encoded Input:", raw_data)
+
+# Scale numeric features
+input_scaled = scaler.transform([raw_data])
+st.write("Scaled Input:", input_scaled.tolist())
+
+# Get probability instead of only label
+if hasattr(model, "predict_proba"):
+    prob = model.predict_proba(input_scaled)[0]  # [Low Risk, High Risk]
+    st.write(f"Probability Low Risk: {prob[0]:.2%}")
+    st.write(f"Probability High Risk: {prob[1]:.2%}")
+    prediction = 1 if prob[1] >= 0.5 else 0
+else:
+    prediction = model.predict(input_scaled)[0]
+    prob = [None, None]
+
+# Show prediction result
+prediction_result = "✅ Low Risk: Loan Likely to be Approved" if prediction == 0 else "❌ High Risk: Loan Likely to Default"
+st.subheader("Prediction Result")
+st.write(prediction_result)
+
 
 
 
