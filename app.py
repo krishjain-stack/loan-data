@@ -4,15 +4,15 @@ import numpy as np
 import joblib
 import matplotlib.pyplot as plt
 import seaborn as sns
-import plotly.graph_objects as go
-import base64
+import plotly.express as px
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.pdfgen import canvas
+import base64
+import os
 
-# --------------------
-# Background Image
-# --------------------
+# -------------------------
+# Function to add background
+# -------------------------
 def add_bg_from_local(image_file):
     with open(image_file, "rb") as img_file:
         encoded = base64.b64encode(img_file.read()).decode()
@@ -30,23 +30,24 @@ def add_bg_from_local(image_file):
         unsafe_allow_html=True
     )
 
-add_bg_from_local("bank.png")  # Your background image
+# Call background image
+add_bg_from_local("bank.png")
 
-# --------------------
-# Load Model & Scaler
-# --------------------
+# -------------------------
+# Load model and scaler
+# -------------------------
 model = joblib.load("model.pkl")
 scaler = joblib.load("scaler.pkl")
 
-# --------------------
+# -------------------------
 # App Title
-# --------------------
+# -------------------------
 st.title("🏦 Loan Default Prediction App")
 st.write("Enter applicant details to predict loan default risk.")
 
-# --------------------
-# Input Fields
-# --------------------
+# -------------------------
+# Input fields
+# -------------------------
 gender = st.selectbox("Gender", ["Male", "Female"])
 married = st.selectbox("Married", ["Yes", "No"])
 dependents = st.selectbox("Dependents", ["0", "1", "2", "3+"])
@@ -54,152 +55,117 @@ education = st.selectbox("Education", ["Graduate", "Not Graduate"])
 self_employed = st.selectbox("Self Employed", ["Yes", "No"])
 applicant_income = st.number_input("Applicant Income", min_value=0)
 coapplicant_income = st.number_input("Coapplicant Income", min_value=0)
-
-# Sliders for loan amount and term
 loan_amount = st.slider("Loan Amount (in thousands)", min_value=0, max_value=500, value=150, step=1)
 loan_amount_term = st.slider("Loan Amount Term (in months)", min_value=12, max_value=480, value=360, step=12)
-
 credit_history = st.selectbox("Credit History", ["Good (1)", "Bad (0)"])
 property_area = st.selectbox("Property Area", ["Urban", "Semiurban", "Rural"])
 
-# --------------------
-# Convert Inputs to Numeric Codes
-# --------------------
-gender_code = 1 if gender == "Male" else 0
-married_code = 1 if married == "Yes" else 0
-dependents_code = 3 if dependents == "3+" else int(dependents)
-education_code = 0 if education == "Graduate" else 1
-self_employed_code = 1 if self_employed == "Yes" else 0
-credit_history_code = 1 if credit_history == "Good (1)" else 0
-property_area_code = {"Urban": 2, "Semiurban": 1, "Rural": 0}[property_area]
+# -------------------------
+# Convert inputs to numeric codes
+# -------------------------
+gender = 1 if gender == "Male" else 0
+married = 1 if married == "Yes" else 0
+dependents = 3 if dependents == "3+" else int(dependents)
+education = 0 if education == "Graduate" else 1
+self_employed = 1 if self_employed == "Yes" else 0
+credit_history = 1 if credit_history == "Good (1)" else 0
+property_area = {"Urban": 2, "Semiurban": 1, "Rural": 0}[property_area]
 
-# --------------------
-# Create Input Array & Scale
-# --------------------
-input_data = np.array([[gender_code, married_code, dependents_code, education_code,
-                        self_employed_code, applicant_income, coapplicant_income,
-                        loan_amount, loan_amount_term, credit_history_code, property_area_code]])
+# -------------------------
+# Create input array
+# -------------------------
+input_data = np.array([[gender, married, dependents, education,
+                        self_employed, applicant_income, coapplicant_income,
+                        loan_amount, loan_amount_term, credit_history, property_area]])
 
+# -------------------------
+# Scale numeric features
+# -------------------------
 input_scaled = scaler.transform(input_data)
 
-# --------------------
-# Predict
-# --------------------
+# -------------------------
+# Prediction
+# -------------------------
+prediction_result = ""
 if st.button("Predict Loan Default"):
     prediction = model.predict(input_scaled)
-    prob = model.predict_proba(input_scaled)[0][1]  # Probability of default
-
-    # Gauge Chart
-    st.subheader("📉 Risk Probability Gauge")
-    fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=round(prob * 100, 2),
-        title={'text': "Probability of Default (%)"},
-        gauge={'axis': {'range': [0, 100]},
-               'bar': {'color': "red" if prediction[0] == 1 else "green"},
-               'steps': [
-                   {'range': [0, 50], 'color': "lightgreen"},
-                   {'range': [50, 75], 'color': "yellow"},
-                   {'range': [75, 100], 'color': "red"}
-               ]}
-    ))
-    st.plotly_chart(fig_gauge)
-
     if prediction[0] == 1:
-        result_text = "❌ High Risk: Loan Likely to Default."
-        st.error(result_text)
+        prediction_result = "❌ High Risk: Loan Likely to Default."
+        st.error(prediction_result)
     else:
-        result_text = "✅ Low Risk: Loan Likely to be Approved."
-        st.success(result_text)
+        prediction_result = "✅ Low Risk: Loan Likely to be Approved."
+        st.success(prediction_result)
 
-    # --------------------
-    # PDF Download Button
-    # --------------------
-    def create_pdf():
-        pdf_file = "loan_prediction_report.pdf"
-        doc = SimpleDocTemplate(pdf_file, pagesize=letter)
-        styles = getSampleStyleSheet()
-        elements = []
-
-        elements.append(Paragraph("🏦 Loan Prediction Report", styles['Title']))
-        elements.append(Spacer(1, 12))
-
-        # Add inputs
-        inputs_summary = f"""
-        Gender: {gender}<br/>
-        Married: {married}<br/>
-        Dependents: {dependents}<br/>
-        Education: {education}<br/>
-        Self Employed: {self_employed}<br/>
-        Applicant Income: {applicant_income}<br/>
-        Coapplicant Income: {coapplicant_income}<br/>
-        Loan Amount: {loan_amount}<br/>
-        Loan Term: {loan_amount_term}<br/>
-        Credit History: {credit_history}<br/>
-        Property Area: {property_area}<br/>
-        """
-        elements.append(Paragraph(inputs_summary, styles['Normal']))
-        elements.append(Spacer(1, 12))
-
-        # Add prediction
-        elements.append(Paragraph(f"Prediction: {result_text}", styles['Heading2']))
-        elements.append(Paragraph(f"Probability of Default: {round(prob * 100, 2)}%", styles['Normal']))
-
-        doc.build(elements)
-        return pdf_file
-
-    pdf_path = create_pdf()
-
-    with open(pdf_path, "rb") as file:
-        st.download_button(
-            label="📥 Download Prediction Report (PDF)",
-            data=file,
-            file_name="loan_prediction_report.pdf",
-            mime="application/pdf"
-        )
-
-# --------------------
-# Visual Insights
-# --------------------
-st.markdown("---")
-st.header("📊 Visual Insights Based on Your Inputs")
+# -------------------------
+# Create visuals (horizontal layout)
+# -------------------------
+st.subheader("📊 Data Insights")
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.markdown("**1. Income Comparison**")
-    fig1, ax1 = plt.subplots()
-    sns.barplot(x=["Applicant", "Coapplicant"], y=[applicant_income, coapplicant_income], ax=ax1)
-    ax1.set_ylabel("Income")
-    st.pyplot(fig1)
+    fig, ax = plt.subplots()
+    sns.barplot(x=["Applicant", "Coapplicant"], y=[applicant_income, coapplicant_income], ax=ax)
+    ax.set_title("Income Comparison")
+    st.pyplot(fig)
 
 with col2:
-    st.markdown("**2. Property Area**")
-    area_counts = pd.Series({"Urban": 45, "Semiurban": 35, "Rural": 20})
-    fig2, ax2 = plt.subplots()
-    ax2.pie(area_counts, labels=area_counts.index, autopct='%1.1f%%', startangle=90)
-    ax2.axis('equal')
-    st.pyplot(fig2)
+    fig, ax = plt.subplots()
+    sns.histplot([loan_amount], kde=False, ax=ax)
+    ax.set_title("Loan Amount Distribution")
+    st.pyplot(fig)
 
 with col3:
-    st.markdown("**3. Loan Amount Dist.**")
-    sample_loans = np.random.normal(loc=loan_amount if loan_amount > 0 else 150, scale=50, size=100)
-    fig3, ax3 = plt.subplots()
-    sns.histplot(sample_loans, bins=20, kde=True, ax=ax3)
-    ax3.set_xlabel("Loan Amount")
-    st.pyplot(fig3)
+    fig, ax = plt.subplots()
+    sns.boxplot(y=[loan_amount_term], ax=ax)
+    ax.set_title("Loan Term Spread")
+    st.pyplot(fig)
 
 with col4:
-    st.markdown("**4. Income vs Loan**")
-    sample_income = np.random.normal(loc=applicant_income, scale=3000, size=50)
-    sample_loan = np.random.normal(loc=loan_amount if loan_amount > 0 else 150, scale=50, size=50)
-    fig4, ax4 = plt.subplots()
-    ax4.scatter(sample_income, sample_loan, alpha=0.4, label="Sample")
-    ax4.scatter(applicant_income, loan_amount, color='red', s=100, label="You")
-    ax4.set_xlabel("Applicant Income")
-    ax4.set_ylabel("Loan Amount")
-    ax4.legend()
-    st.pyplot(fig4)
+    fig = px.pie(
+        names=["Dependents: " + str(dependents), "Others"],
+        values=[1, 3],
+        title="Dependents Share"
+    )
+    st.plotly_chart(fig)
+
+# -------------------------
+# PDF Download
+# -------------------------
+def create_pdf(data_dict, filename="loan_prediction.pdf"):
+    c = canvas.Canvas(filename, pagesize=letter)
+    c.setFont("Helvetica", 12)
+    c.drawString(50, 750, "Loan Prediction Report")
+    c.line(50, 745, 550, 745)
+    
+    y = 720
+    for key, value in data_dict.items():
+        c.drawString(50, y, f"{key}: {value}")
+        y -= 20
+    
+    c.save()
+
+if st.button("Download Report as PDF"):
+    user_data = {
+        "Gender": "Male" if gender == 1 else "Female",
+        "Married": "Yes" if married == 1 else "No",
+        "Dependents": dependents,
+        "Education": "Graduate" if education == 0 else "Not Graduate",
+        "Self Employed": "Yes" if self_employed == 1 else "No",
+        "Applicant Income": applicant_income,
+        "Coapplicant Income": coapplicant_income,
+        "Loan Amount (000s)": loan_amount,
+        "Loan Amount Term (months)": loan_amount_term,
+        "Credit History": "Good" if credit_history == 1 else "Bad",
+        "Property Area": {2: "Urban", 1: "Semiurban", 0: "Rural"}[property_area],
+        "Prediction": prediction_result
+    }
+    create_pdf(user_data)
+    with open("loan_prediction.pdf", "rb") as pdf_file:
+        PDFbyte = pdf_file.read()
+    st.download_button(label="📥 Download PDF", data=PDFbyte, file_name="loan_prediction.pdf", mime="application/pdf")
+
+
 
 
 
