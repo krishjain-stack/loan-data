@@ -38,7 +38,7 @@ scaler = joblib.load("scaler.pkl")
 # App title
 # ---------------------------
 st.title("🏦 Loan Default Prediction App")
-st.write("Enter applicant details and download a PDF report instantly.")
+st.write("Enter applicant details and get loan default prediction with PDF report.")
 
 # ---------------------------
 # Input fields
@@ -67,19 +67,9 @@ credit_history_code = 1 if credit_history == "Good (1)" else 0
 property_area_code = {"Urban": 2, "Semiurban": 1, "Rural": 0}[property_area]
 
 # ---------------------------
-# Prepare data for prediction
-# ---------------------------
-input_data = np.array([[gender_code, married_code, dependents_code, education_code,
-                        self_employed_code, applicant_income, coapplicant_income,
-                        loan_amount, loan_amount_term, credit_history_code, property_area_code]])
-input_scaled = scaler.transform(input_data)
-prediction = model.predict(input_scaled)
-prediction_result = "✅ Low Risk: Loan Likely to be Approved" if prediction[0] == 0 else "❌ High Risk: Loan Likely to Default"
-
-# ---------------------------
 # Function to create PDF in memory
 # ---------------------------
-def create_pdf():
+def create_pdf(prediction_result):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
     c.setFont("Helvetica-Bold", 16)
@@ -111,14 +101,28 @@ def create_pdf():
     return buffer
 
 # ---------------------------
-# Download button - Generate & Download PDF
+# Predict button
 # ---------------------------
-st.download_button(
-    label="📥 Download Loan Report as PDF",
-    data=create_pdf(),
-    file_name="loan_prediction.pdf",
-    mime="application/pdf"
-)
+if st.button("🔍 Predict Loan Default"):
+    input_data = np.array([[gender_code, married_code, dependents_code, education_code,
+                            self_employed_code, applicant_income, coapplicant_income,
+                            loan_amount, loan_amount_term, credit_history_code, property_area_code]])
+    input_scaled = scaler.transform(input_data)
+    prediction = model.predict(input_scaled)
+    prediction_result = "✅ Low Risk: Loan Likely to be Approved" if prediction[0] == 0 else "❌ High Risk: Loan Likely to Default"
+
+    st.subheader("Prediction Result")
+    st.write(prediction_result)
+
+    # Show PDF download button after prediction
+    st.download_button(
+        label="📥 Download Loan Report as PDF",
+        data=create_pdf(prediction_result),
+        file_name="loan_prediction.pdf",
+        mime="application/pdf"
+    )
+
+
 
 
 
