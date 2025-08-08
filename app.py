@@ -8,10 +8,9 @@ import plotly.express as px
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import base64
-import os
 
 # -------------------------
-# Function to add background
+# Background Image Function
 # -------------------------
 def add_bg_from_local(image_file):
     with open(image_file, "rb") as img_file:
@@ -30,7 +29,6 @@ def add_bg_from_local(image_file):
         unsafe_allow_html=True
     )
 
-# Call background image
 add_bg_from_local("bank.png")
 
 # -------------------------
@@ -39,9 +37,6 @@ add_bg_from_local("bank.png")
 model = joblib.load("model.pkl")
 scaler = joblib.load("scaler.pkl")
 
-# -------------------------
-# App Title
-# -------------------------
 st.title("🏦 Loan Default Prediction App")
 st.write("Enter applicant details to predict loan default risk.")
 
@@ -60,47 +55,73 @@ loan_amount_term = st.slider("Loan Amount Term (in months)", min_value=12, max_v
 credit_history = st.selectbox("Credit History", ["Good (1)", "Bad (0)"])
 property_area = st.selectbox("Property Area", ["Urban", "Semiurban", "Rural"])
 
-# -------------------------
-# Convert inputs to numeric codes
-# -------------------------
-gender = 1 if gender == "Male" else 0
-married = 1 if married == "Yes" else 0
-dependents = 3 if dependents == "3+" else int(dependents)
-education = 0 if education == "Graduate" else 1
-self_employed = 1 if self_employed == "Yes" else 0
-credit_history = 1 if credit_history == "Good (1)" else 0
-property_area = {"Urban": 2, "Semiurban": 1, "Rural": 0}[property_area]
+# Convert inputs
+gender_code = 1 if gender == "Male" else 0
+married_code = 1 if married == "Yes" else 0
+dependents_code = 3 if dependents == "3+" else int(dependents)
+education_code = 0 if education == "Graduate" else 1
+self_employed_code = 1 if self_employed == "Yes" else 0
+credit_history_code = 1 if credit_history == "Good (1)" else 0
+property_area_code = {"Urban": 2, "Semiurban": 1, "Rural": 0}[property_area]
 
-# -------------------------
-# Create input array
-# -------------------------
-input_data = np.array([[gender, married, dependents, education,
-                        self_employed, applicant_income, coapplicant_income,
-                        loan_amount, loan_amount_term, credit_history, property_area]])
+input_data = np.array([[gender_code, married_code, dependents_code, education_code,
+                        self_employed_code, applicant_income, coapplicant_income,
+                        loan_amount, loan_amount_term, credit_history_code, property_area_code]])
 
-# -------------------------
-# Scale numeric features
-# -------------------------
 input_scaled = scaler.transform(input_data)
 
-# -------------------------
-# Prediction
-# -------------------------
-prediction_result = ""
+# PDF function
+def create_pdf(data_dict, filename="loan_prediction.pdf"):
+    c = canvas.Canvas(filename, pagesize=letter)
+    c.setFont("Helvetica", 12)
+    c.drawString(50, 750, "Loan Prediction Report")
+    c.line(50, 745, 550, 745)
+    
+    y = 720
+    for key, value in data_dict.items():
+        c.drawString(50, y, f"{key}: {value}")
+        y -= 20
+    
+    c.save()
+
+# Predict & Download
 if st.button("Predict Loan Default"):
     prediction = model.predict(input_scaled)
-    if prediction[0] == 1:
-        prediction_result = "❌ High Risk: Loan Likely to Default."
-        st.error(prediction_result)
-    else:
-        prediction_result = "✅ Low Risk: Loan Likely to be Approved."
+    prediction_result = "✅ Low Risk: Loan Likely to be Approved." if prediction[0] == 0 else "❌ High Risk: Loan Likely to Default."
+    
+    if prediction[0] == 0:
         st.success(prediction_result)
+    else:
+        st.error(prediction_result)
+    
+    user_data = {
+        "Gender": gender,
+        "Married": married,
+        "Dependents": dependents,
+        "Education": education,
+        "Self Employed": self_employed,
+        "Applicant Income": applicant_income,
+        "Coapplicant Income": coapplicant_income,
+        "Loan Amount (000s)": loan_amount,
+        "Loan Amount Term (months)": loan_amount_term,
+        "Credit History": "Good" if credit_history_code == 1 else "Bad",
+        "Property Area": property_area,
+        "Prediction": prediction_result
+    }
+    
+    create_pdf(user_data)
+    with open("loan_prediction.pdf", "rb") as pdf_file:
+        st.download_button(
+            label="📥 Download Report as PDF",
+            data=pdf_file,
+            file_name="loan_prediction.pdf",
+            mime="application/pdf"
+        )
 
 # -------------------------
-# Create visuals (horizontal layout)
+# Visuals
 # -------------------------
 st.subheader("📊 Data Insights")
-
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -129,41 +150,7 @@ with col4:
     )
     st.plotly_chart(fig)
 
-# -------------------------
-# PDF Download
-# -------------------------
-def create_pdf(data_dict, filename="loan_prediction.pdf"):
-    c = canvas.Canvas(filename, pagesize=letter)
-    c.setFont("Helvetica", 12)
-    c.drawString(50, 750, "Loan Prediction Report")
-    c.line(50, 745, 550, 745)
-    
-    y = 720
-    for key, value in data_dict.items():
-        c.drawString(50, y, f"{key}: {value}")
-        y -= 20
-    
-    c.save()
 
-if st.button("Download Report as PDF"):
-    user_data = {
-        "Gender": "Male" if gender == 1 else "Female",
-        "Married": "Yes" if married == 1 else "No",
-        "Dependents": dependents,
-        "Education": "Graduate" if education == 0 else "Not Graduate",
-        "Self Employed": "Yes" if self_employed == 1 else "No",
-        "Applicant Income": applicant_income,
-        "Coapplicant Income": coapplicant_income,
-        "Loan Amount (000s)": loan_amount,
-        "Loan Amount Term (months)": loan_amount_term,
-        "Credit History": "Good" if credit_history == 1 else "Bad",
-        "Property Area": {2: "Urban", 1: "Semiurban", 0: "Rural"}[property_area],
-        "Prediction": prediction_result
-    }
-    create_pdf(user_data)
-    with open("loan_prediction.pdf", "rb") as pdf_file:
-        PDFbyte = pdf_file.read()
-    st.download_button(label="📥 Download PDF", data=PDFbyte, file_name="loan_prediction.pdf", mime="application/pdf")
 
 
 
