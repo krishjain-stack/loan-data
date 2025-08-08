@@ -8,3 +8,4 @@ seaborn
 plotly
 reportlab.lib.pagesizes
 reportlab.platypus
+reportlab.lib.styles
